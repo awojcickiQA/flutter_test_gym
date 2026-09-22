@@ -85,6 +85,13 @@ def driver(request):
             time.sleep(1.0)
         except Exception:
             pass
+    else:
+        try:
+            driver.activate_app("com.example.flutter_test_gym")
+            import time
+            time.sleep(1.0)
+        except Exception:
+            pass
 
     yield driver
 
