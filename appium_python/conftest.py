@@ -53,6 +53,9 @@ def driver(request):
         options.bundle_id = "com.example.flutterTestGym"
         options.no_reset = True
         options.new_command_timeout = 240
+        options.wda_launch_timeout = 180000
+        options.wda_startup_retries = 4
+        options.wda_startup_retry_interval = 20000
     else:
         options = UiAutomator2Options()
         options.platform_name = "Android"
@@ -63,6 +66,9 @@ def driver(request):
         options.no_reset = False
         options.new_command_timeout = 240
         options.auto_grant_permissions = True
+        options.uiautomator2_server_install_timeout = 120000
+        options.uiautomator2_server_launch_timeout = 120000
+        options.adb_exec_timeout = 120000
 
         app_path = os.environ.get("APP_PATH")
         if app_path:

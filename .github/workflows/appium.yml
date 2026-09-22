@@ -41,7 +41,7 @@ jobs:
           ls -l /dev/kvm || true
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -92,46 +92,7 @@ jobs:
           avd-name: android_ci_avd
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: |
-            echo "Waiting for emulator to complete boot..."
-            adb wait-for-device
-            boot_completed=0
-            retries=30
-            while [ $retries -gt 0 ]; do
-              boot=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-              if [ "$boot" = "1" ]; then
-                boot_completed=1
-                break
-              fi
-              sleep 2
-              retries=$((retries - 1))
-            done
-
-            if [ $boot_completed -ne 1 ]; then
-              echo "❌ Emulator did not boot in time!"
-              exit 1
-            fi
-            echo "✅ Android Emulator is ready!"
-
-            echo "Starting Appium server..."
-            nohup appium --port 4723 --base-path / > appium_android.log 2>&1 &
-            sleep 5
-            curl -s http://127.0.0.1:4723/status || cat appium_android.log
-
-            echo "Installing debug APK..."
-            adb install -r build/app/outputs/flutter-apk/app-debug.apk
-
-            echo "Executing Pytest Appium suite..."
-            cd appium_python
-            mkdir -p reports
-
-            MARKER="${{ inputs.marker || 'smoke' }}"
-            PYTEST_ARGS=("--platform" "android" "--html=reports/report_android.html" "--self-contained-html")
-            if [ "$MARKER" != "all" ] && [ -n "$MARKER" ]; then
-              PYTEST_ARGS+=("-m" "$MARKER")
-            fi
-
-            pytest "${PYTEST_ARGS[@]}"
+          script: bash .github/scripts/run_android_tests.sh "${{ inputs.marker || 'smoke' }}"
 
       - name: Upload Appium Android Server Log
         if: always()
