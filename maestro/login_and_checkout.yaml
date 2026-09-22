@@ -1,0 +1,65 @@
+appId: com.example.flutter_test_gym
+---
+# Test Scenariusz Maestro: Logowanie i Zakup w Sklepie E-Commerce
+- launchApp:
+    clearState: true
+
+# 1. Nawigacja do sklepu
+- assertVisible: "Witaj na poligonie testowym!"
+- tapOn:
+    id: "nav_module_shop"
+
+# 2. Logowanie
+- assertVisible: "Zaloguj się do Sklepu QA"
+- tapOn:
+    id: "shop_login_quick_fill_btn"
+- tapOn:
+    id: "shop_login_submit_btn"
+
+# 3. Katalog i dodanie produktu
+- assertVisible: "Katalog Produktów"
+- tapOn:
+    id: "shop_product_add_btn_prod_1"
+- tapOn:
+    id: "shop_catalog_cart_btn"
+
+# 4. Koszyk i kod rabatowy
+- assertVisible: "Twój Koszyk"
+- tapOn:
+    id: "shop_cart_coupon_input"
+- inputText: "DISCOUNT10"
+- tapOn:
+    id: "shop_cart_coupon_apply_btn"
+- assertVisible: "DISCOUNT10 (10% taniej)"
+- tapOn:
+    id: "shop_cart_checkout_btn"
+
+# 5. Kasa (Checkout)
+- assertVisible: "Kasa (Checkout Multi-Step)"
+- tapOn:
+    id: "shop_checkout_name_input"
+- inputText: "Jan Kowalski"
+- tapOn:
+    id: "shop_checkout_street_input"
+- inputText: "Marszałkowska 10"
+- tapOn:
+    id: "shop_checkout_zip_input"
+- inputText: "00-001"
+- tapOn:
+    id: "shop_checkout_city_input"
+- inputText: "Warszawa"
+- tapOn:
+    id: "shop_checkout_next_btn"
+
+# Krok 2: Wybór dostawy
+- tapOn:
+    id: "shop_checkout_next_btn"
+
+# Krok 3: Płatność i finalizacja
+- tapOn:
+    id: "shop_checkout_place_order_btn"
+
+# 6. Potwierdzenie zamówienia
+- assertVisible: "Dziękujemy za złożenie zamówienia!"
+- assertVisible:
+    id: "shop_order_id_text"

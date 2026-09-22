@@ -1,0 +1,42 @@
+appId: com.example.flutter_test_gym
+---
+# Test Scenariusz Maestro: Gesty, Tapnięcia i Przewijanie Listy
+- launchApp:
+    clearState: true
+
+# 1. Przejście do modułu gestów
+- tapOn:
+    id: "nav_module_gestures"
+
+- assertVisible: "Gesty & Interakcje Dotykowe"
+
+# Tapnięcia
+- tapOn:
+    id: "gestures_single_tap_area"
+- assertVisible: "Licznik: 1"
+
+# Podwójny tap
+- doubleTapOn:
+    id: "gestures_double_tap_area"
+- assertVisible: "Licznik: 1"
+
+# Powrót do menu głównego
+- back
+
+# 2. Przejście do modułu list
+- tapOn:
+    id: "nav_module_lists"
+
+- assertVisible: "Listy & Wirtualizacja"
+
+# Wyszukiwanie na liście
+- tapOn:
+    id: "lists_search_input"
+- inputText: "Rekord danych #15"
+- assertVisible: "Rekord danych #15 - Identyfikator QA-1605"
+- tapOn:
+    id: "lists_search_clear_btn"
+
+# Przewijanie w dół (scroll)
+- scroll
+- assertVisible: "Widocznych elementów:"
