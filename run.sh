@@ -37,7 +37,11 @@ start_ios() {
 
 start_android() {
     echo "🤖 Uruchamianie emulatora Android..."
-    export PATH="/Users/arturwojcicki/Library/Android/sdk/platform-tools:$PATH"
+    if [ -n "$ANDROID_HOME" ]; then
+        export PATH="$ANDROID_HOME/platform-tools:$PATH"
+    elif [ -d "$HOME/Library/Android/sdk/platform-tools" ]; then
+        export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
+    fi
     if ! adb devices 2>/dev/null | grep -q "emulator-"; then
         flutter emulators --launch Pixel_7_API_34 || true
         adb wait-for-device 2>/dev/null || true
@@ -49,7 +53,11 @@ start_all() {
     echo "📱 Uruchamianie symulatora iOS..."
     open -a Simulator
     echo "🤖 Uruchamianie emulatora Android..."
-    export PATH="/Users/arturwojcicki/Library/Android/sdk/platform-tools:$PATH"
+    if [ -n "$ANDROID_HOME" ]; then
+        export PATH="$ANDROID_HOME/platform-tools:$PATH"
+    elif [ -d "$HOME/Library/Android/sdk/platform-tools" ]; then
+        export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
+    fi
     if ! adb devices 2>/dev/null | grep -q "emulator-"; then
         flutter emulators --launch Pixel_7_API_34 || true
     fi
@@ -58,7 +66,11 @@ start_all() {
 }
 
 ensure_android_emulator() {
-    export PATH="/Users/arturwojcicki/Library/Android/sdk/platform-tools:$PATH"
+    if [ -n "$ANDROID_HOME" ]; then
+        export PATH="$ANDROID_HOME/platform-tools:$PATH"
+    elif [ -d "$HOME/Library/Android/sdk/platform-tools" ]; then
+        export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
+    fi
     if ! adb devices 2>/dev/null | grep -q "emulator-"; then
         echo "🤖 Emulator Android nie jest uruchomiony. Uruchamianie Pixel_7_API_34..."
         flutter emulators --launch Pixel_7_API_34 || true

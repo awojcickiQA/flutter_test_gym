@@ -1,0 +1,257 @@
+name: Appium Mobile Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Wybór platformy do uruchomienia testów'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - android
+          - ios
+      marker:
+        description: 'Marker pytest (np. smoke, navigation, forms, gestures, lists, shop, all)'
+        required: false
+        default: 'smoke'
+        type: string
+
+jobs:
+  test-android:
+    name: Appium (Android Emulator)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'android' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Enable KVM hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || true
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: appium_python/requirements.txt
+
+      - name: Install Appium and UiAutomator2 driver
+        run: |
+          npm install -g appium
+          appium driver install uiautomator2
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r appium_python/requirements.txt
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Android Debug APK
+        run: flutter build apk --debug
+
+      - name: Run Appium Tests on Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 2048M
+          avd-name: android_ci_avd
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            echo "Waiting for emulator to complete boot..."
+            adb wait-for-device
+            boot_completed=0
+            retries=30
+            while [ $retries -gt 0 ]; do
+              boot=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+              if [ "$boot" = "1" ]; then
+                boot_completed=1
+                break
+              fi
+              sleep 2
+              retries=$((retries - 1))
+            done
+
+            if [ $boot_completed -ne 1 ]; then
+              echo "❌ Emulator did not boot in time!"
+              exit 1
+            fi
+            echo "✅ Android Emulator is ready!"
+
+            echo "Starting Appium server..."
+            nohup appium --port 4723 --base-path / > appium_android.log 2>&1 &
+            sleep 5
+            curl -s http://127.0.0.1:4723/status || cat appium_android.log
+
+            echo "Installing debug APK..."
+            adb install -r build/app/outputs/flutter-apk/app-debug.apk
+
+            echo "Executing Pytest Appium suite..."
+            cd appium_python
+            mkdir -p reports
+
+            MARKER="${{ inputs.marker || 'smoke' }}"
+            PYTEST_ARGS=("--platform" "android" "--html=reports/report_android.html" "--self-contained-html")
+            if [ "$MARKER" != "all" ] && [ -n "$MARKER" ]; then
+              PYTEST_ARGS+=("-m" "$MARKER")
+            fi
+
+            pytest "${PYTEST_ARGS[@]}"
+
+      - name: Upload Appium Android Server Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-android-server-log
+          path: appium_android.log
+          retention-days: 7
+
+      - name: Upload Android Test Reports & Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-android-reports
+          path: appium_python/reports/
+          retention-days: 14
+
+  test-ios:
+    name: Appium (iOS Simulator)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'ios' }}
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: appium_python/requirements.txt
+
+      - name: Install Appium and XCUITest driver
+        run: |
+          npm install -g appium
+          appium driver install xcuitest
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r appium_python/requirements.txt
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Flutter iOS Simulator App
+        run: flutter build ios --simulator --debug --no-codesign
+
+      - name: Boot iOS Simulator and Install App
+        run: |
+          echo "Available iOS Simulator devices:"
+          xcrun simctl list devices available
+
+          # Find or pick an available iPhone
+          DEVICE_UUID=$(xcrun simctl list devices available | grep -E "iPhone (15|16)" | head -1 | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
+          if [ -z "$DEVICE_UUID" ]; then
+            DEVICE_UUID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
+          fi
+
+          if [ -z "$DEVICE_UUID" ]; then
+            echo "❌ Could not find an available iPhone simulator!"
+            exit 1
+          fi
+
+          echo "Booting simulator UDID: $DEVICE_UUID"
+          xcrun simctl boot "$DEVICE_UUID" || true
+          xcrun simctl bootstatus "$DEVICE_UUID" -b
+
+          echo "Installing Runner.app onto simulator..."
+          xcrun simctl install booted build/ios/iphonesimulator/Runner.app
+
+          echo "SIMULATOR_UDID=$DEVICE_UUID" >> $GITHUB_ENV
+
+      - name: Start Appium Server
+        run: |
+          echo "Starting Appium server..."
+          nohup appium --port 4723 --base-path / > appium_ios.log 2>&1 &
+          sleep 5
+          curl -s http://127.0.0.1:4723/status || cat appium_ios.log
+
+      - name: Run Pytest Appium tests (iOS)
+        env:
+          IOS_UDID: ${{ env.SIMULATOR_UDID }}
+        run: |
+          cd appium_python
+          mkdir -p reports
+
+          MARKER="${{ inputs.marker || 'smoke' }}"
+          PYTEST_ARGS=("--platform" "ios" "--html=reports/report_ios.html" "--self-contained-html")
+          if [ "$MARKER" != "all" ] && [ -n "$MARKER" ]; then
+            PYTEST_ARGS+=("-m" "$MARKER")
+          fi
+
+          pytest "${PYTEST_ARGS[@]}"
+
+      - name: Upload Appium iOS Server Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-ios-server-log
+          path: appium_ios.log
+          retention-days: 7
+
+      - name: Upload iOS Test Reports & Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-ios-reports
+          path: appium_python/reports/
+          retention-days: 14

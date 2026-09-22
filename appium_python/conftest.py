@@ -31,12 +31,28 @@ def driver(request):
         options = XCUITestOptions()
         options.platform_name = "iOS"
         options.automation_name = "XCUITest"
-        options.platform_version = os.environ.get("IOS_PLATFORM_VERSION", "26.3")
-        options.udid = os.environ.get("IOS_UDID", "42BF3380-71CD-4BD7-B659-4A8817837F3D")
-        options.device_name = os.environ.get("IOS_DEVICE_NAME", "iPhone 16e")
+
+        platform_version = os.environ.get("IOS_PLATFORM_VERSION")
+        if platform_version:
+            options.platform_version = platform_version
+
+        udid = os.environ.get("IOS_UDID")
+        if udid:
+            options.udid = udid
+
+        device_name = os.environ.get("IOS_DEVICE_NAME")
+        if device_name:
+            options.device_name = device_name
+        elif not udid:
+            options.device_name = "iPhone"
+
+        app_path = os.environ.get("APP_PATH")
+        if app_path:
+            options.app = app_path
+
         options.bundle_id = "com.example.flutterTestGym"
         options.no_reset = True
-        options.new_command_timeout = 180
+        options.new_command_timeout = 240
     else:
         options = UiAutomator2Options()
         options.platform_name = "Android"
@@ -45,7 +61,12 @@ def driver(request):
         options.app_package = "com.example.flutter_test_gym"
         options.app_activity = ".MainActivity"
         options.no_reset = False
-        options.new_command_timeout = 180
+        options.new_command_timeout = 240
+        options.auto_grant_permissions = True
+
+        app_path = os.environ.get("APP_PATH")
+        if app_path:
+            options.app = app_path
 
     driver = webdriver.Remote(appium_server_url, options=options)
     driver.implicitly_wait(0)

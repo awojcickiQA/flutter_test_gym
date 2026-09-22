@@ -9,9 +9,19 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
 # Eksport ścieżek Android SDK
-export ANDROID_HOME="${ANDROID_HOME:-/Users/arturwojcicki/Library/Android/sdk}"
-export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/Users/arturwojcicki/Library/Android/sdk}"
-export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+if [ -z "$ANDROID_HOME" ]; then
+    if [ -d "$HOME/Library/Android/sdk" ]; then
+        export ANDROID_HOME="$HOME/Library/Android/sdk"
+    elif [ -d "/usr/local/lib/android/sdk" ]; then
+        export ANDROID_HOME="/usr/local/lib/android/sdk"
+    elif [ -d "/Users/arturwojcicki/Library/Android/sdk" ]; then
+        export ANDROID_HOME="/Users/arturwojcicki/Library/Android/sdk"
+    fi
+fi
+export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+if [ -n "$ANDROID_HOME" ]; then
+    export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+fi
 
 # Weryfikacja i automatyczne uruchomienie serwera Appium w razie potrzeby
 check_appium_server() {
@@ -43,9 +53,11 @@ check_appium_server
 # Aktywacja wirtualnego środowiska Python
 if [ -d ".venv" ]; then
     source .venv/bin/activate
+elif command -v pytest >/dev/null 2>&1; then
+    echo "ℹ️ Używanie aktywnego/systemowego środowiska Python z zainstalowanym pytest."
 else
-    echo "❌ Środowisko .venv nie istnieje. Zainstaluj zależności wpisując:"
-    echo "   /opt/homebrew/bin/uv venv .venv && source .venv/bin/activate && /opt/homebrew/bin/uv pip install -r requirements.txt"
+    echo "❌ Środowisko .venv nie istnieje i nie znaleziono polecenia pytest. Zainstaluj zależności wpisując:"
+    echo "   python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt"
     exit 1
 fi
 
